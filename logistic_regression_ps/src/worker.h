@@ -12,10 +12,11 @@ namespace linear{
 class Worker : public ps::App{
     public:
         Worker(const char *file_path){
-	    Load_Data ld(file_path);
-            data = &ld;
+            data = new Load_Data(file_path);
         }
-        ~Worker(){} 
+        ~Worker(){
+            delete data;
+        } 
         virtual void ProcessRequest(ps::Message* request){
             Process();
         }

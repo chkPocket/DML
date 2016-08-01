@@ -1,6 +1,0 @@
-Log file created at: 2016/06/22 22:56:04
-Running on machine: iZ254v3wihjZ
-Log line format: [IWEF]mmdd hh:mm:ss.uuuuuu threadid file:line] msg
-I0622 22:56:04.853286  6920 lr_main.cpp:19] my process rank: 1, totoal process num: 4
-I0622 22:56:04.853483  6920 load_data.cpp:15] process 1 read ./data/agaricus.txt.train-00001
-I0622 22:56:06.689596  6920 load_data.cpp:15] process 1 read ./data/agaricus.txt.test-00001

@@ -1,4 +1,0 @@
-Log file created at: 2016/06/23 12:10:03
-Running on machine: iZ254v3wihjZ
-Log line format: [IWEF]mmdd hh:mm:ss.uuuuuu threadid file:line] msg
-I0623 12:10:03.681596 11360 fm_main.cpp:18] my process rank: 0, totoal process num: 4

@@ -1,4 +1,0 @@
-Log file created at: 2016/06/22 23:46:19
-Running on machine: iZ254v3wihjZ
-Log line format: [IWEF]mmdd hh:mm:ss.uuuuuu threadid file:line] msg
-E0622 23:46:19.422049  7465 load_data.cpp:18] process 0 open file error: (null)-00000
