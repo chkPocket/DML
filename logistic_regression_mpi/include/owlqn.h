@@ -11,6 +11,7 @@
 #include <deque>
 #include <pthread.h>
 #include "load_data.h"
+
 #define MASTERID 0
 
 class OWLQN{

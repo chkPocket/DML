@@ -13,13 +13,13 @@ extern "C"{
 #include <cblas.h>
 }
 
-OWLQN::OWLQN(Load_Data* ld, int total_num_proc, int my_rank) 
+OWLQN::OWLQN(Load_Data* ld, int total_num_proc, int my_rank)
     : data(ld), num_proc(total_num_proc), rank(my_rank) {
-    init();
-}
+        init();
+    }
 
 OWLQN::~OWLQN(){
-    delete[] glo_w; 
+    delete[] glo_w;
     delete[] glo_new_w;
 
     delete[] loc_z;
@@ -106,7 +106,7 @@ void OWLQN::init(){
         }
     }
     glo_alpha_list = new double[data->glo_fea_dim]();
-    glo_ro_list = new double[data->glo_fea_dim](); 
+    glo_ro_list = new double[data->glo_fea_dim]();
 
     loc_loss = 0.0;
     glo_loss = 0.0;
@@ -157,11 +157,12 @@ double OWLQN::calculate_loss(double *para_w){
             wx += *(para_w + index) * val;//maybe add bias later
         }
         //LOG(INFO)<<"wx: "<<sigmoid(wx)<<std::endl;
-        single_loss = data->label[i] * log(sigmoid(wx)) + (1 - data->label[i]) * log(1 - sigmoid(wx));
+        single_loss = data->label[i] * log(sigmoid(wx)) +
+                      (1 - data->label[i]) * log(1 - sigmoid(wx));
         f += single_loss;
     }
     for(int j = 0; j < data->fea_matrix[0].size(); j++){
-	regular_loss += abs( *(para_w + index) );
+        regular_loss += abs( *(para_w + index) );
     }
     return -f / data->fea_matrix.size() + regular_loss;
 }
@@ -170,25 +171,30 @@ void OWLQN::calculate_gradient(){
     int index, single_feature_num;
     double value;
     int instance_num = data->fea_matrix.size();
-    //LOG(INFO) << "process " << rank << ", instance num " << instance_num << std::endl;
+    //LOG(INFO) << "process " << rank << ", instance num "
+    //          << instance_num << std::endl;
     for(int i = 0; i < instance_num; i++){
         single_feature_num = data->fea_matrix[i].size();
         for(int j = 0; j < single_feature_num; j++){
             index = data->fea_matrix[i][j].idx;
             value = data->fea_matrix[i][j].val;
             loc_g[index] += (sigmoid(loc_z[i]) - data->label[i]) * value;
-            //DLOG(INFO) << "loc_g[" << index << "]: " << loc_g[index] << " after instance " << i + 1  << "/" << instance_num << " in rank " << rank <<std::endl << std::flush;
+            //DLOG(INFO) << "loc_g[" << index << "]: " << loc_g[index]
+            //           << " after instance " << i + 1  << "/" << instance_num
+            //           << " in rank " << rank <<std::endl << std::flush;
         }
         /*
            if(i == instance_num - 1){
            for(int index = 0; index < data->glo_fea_dim; index++)
-           std::cout<< "loc_g[" << index << "]: " << loc_g[index] << " after instance " << i + 1  << "/" << instance_num << " in rank " << rank <<std::endl << std::flush;
-
+           std::cout << "loc_g[" << index << "]: " << loc_g[index]
+                     << " after instance " << i + 1  << "/" << instance_num
+                     << " in rank " << rank <<std::endl << std::flush;
            }*/
     }
     /*for(int index = 0; index < data->glo_fea_dim; index++){
       glo_g[index] = loc_g[index] / instance_num;
-    //std::cout<< "glo_g[" << index << "]: " << glo_g[index] << " after normal " << "in rank " << rank <<std::endl << std::flush;	
+    //std::cout << "glo_g[" << index << "]: " << glo_g[index] << " after normal "
+    //          << "in rank " << rank <<std::endl << std::flush;	
     }*/
 }
 
@@ -197,8 +203,7 @@ void OWLQN::calculate_subgradient(){
         for(int j = 0; j < data->glo_fea_dim; j++){
             *(glo_sub_g + j) = -1 * *(glo_g + j);
         }
-    }
-    else if(c != 0.0){
+    } else if(c != 0.0){
         for(int j = 0; j < data->glo_fea_dim; j++){
             //LOG(INFO) << *(glo_g + j) << std::endl;
             //LOG(INFO) << *(glo_w + j) << std::endl;
@@ -210,9 +215,13 @@ void OWLQN::calculate_subgradient(){
             }
             else {
                 //LOG(INFO) << *(glo_g + j) - c << std::endl;
-                if(*(glo_g + j) - c > 0) *(glo_sub_g + j) = *(glo_g + j) - c;//左导数
-                else if(*(glo_g + j) + c < 0) *(glo_sub_g + j) = *(glo_g + j) + c;
-                else *(glo_sub_g + j) = 0;
+                if(*(glo_g + j) - c > 0){
+                    *(glo_sub_g + j) = *(glo_g + j) - c;//左导数
+                } else if(*(glo_g + j) + c < 0){
+                    *(glo_sub_g + j) = *(glo_g + j) + c;
+                } else {
+                    *(glo_sub_g + j) = 0;
+                }
             }
             //LOG(INFO) << *(glo_sub_g + j) << std::endl;
             //LOG(INFO) << c <<std::endl;
@@ -221,7 +230,8 @@ void OWLQN::calculate_subgradient(){
     /*
        for(int i = 0; i < data->glo_fea_dim; i++){
        if(rank == 0)
-       std::cout<<"glo_sub_g["<<i<<"]: "<<glo_sub_g[i]<<" in rank:" <<rank<<std::endl;
+       std::cout<<"glo_sub_g["<<i<<"]: "<<glo_sub_g[i]
+                <<" in rank:" <<rank<<std::endl;
        }*/
 }
 
@@ -232,11 +242,11 @@ void OWLQN::fix_dir_glo_q(){
 if(rank == 0) std::cout<<"glo_sub_g["<<j<<"]"<<glo_sub_g[j]<<std::endl;
 }
 */
-for(int j = 0; j < data->glo_fea_dim; ++j){
-    if(*(glo_q + j) * *(glo_sub_g +j) >= 0){
-        *(glo_q + j) = 0.0;
+    for(int j = 0; j < data->glo_fea_dim; ++j){
+        if(*(glo_q + j) * *(glo_sub_g +j) >= 0){
+            *(glo_q + j) = 0.0;
+        }
     }
-}
 /*
    for(int j = 0; j < data->glo_fea_dim; ++j){
    std::cout<<"glo_q["<<j<<"]: "<<glo_q[j]<<std::endl;
@@ -256,91 +266,95 @@ void OWLQN::line_search(){
     while(true){
         if(rank == MASTERID){
             for(int j = 0; j < data->glo_fea_dim; j++){
-                *(glo_new_w + j) = *(glo_w + j) + lambda * *(glo_g + j);//local_g equal all nodes g
+                //local_g equal all nodes g
+                *(glo_new_w + j) = *(glo_w + j) + lambda * *(glo_g + j);
             }
             for(int i = 1; i < num_proc; i++){
-                MPI_Send(glo_new_w, data->glo_fea_dim, MPI_DOUBLE, i, 99, MPI_COMM_WORLD);
+                MPI_Send(glo_new_w, data->glo_fea_dim, MPI_DOUBLE, i,
+                        99, MPI_COMM_WORLD);
             }
         } else if(rank != MASTERID){
             for(int i = 1; i < num_proc; i++){
-                MPI_Recv(glo_new_w, data->glo_fea_dim, MPI_DOUBLE, i, 99, MPI_COMM_WORLD, &status);
+                MPI_Recv(glo_new_w, data->glo_fea_dim, MPI_DOUBLE, i,
+                        99, MPI_COMM_WORLD, &status);
             }
         }
 
-        loc_new_loss = calculate_loss(glo_new_w);//cal new loss per thread
+        loc_new_loss = calculate_loss(glo_new_w);
+
         if(rank != MASTERID){
-            MPI_Send(&loc_new_loss, data->glo_fea_dim, MPI_FLOAT, 0, 9999, MPI_COMM_WORLD);
-        }
-        else if(rank == MASTERID){
+            MPI_Send(&loc_new_loss, data->glo_fea_dim, MPI_FLOAT, 0,
+                    9999, MPI_COMM_WORLD);
+        } else if(rank == MASTERID){
             glo_new_loss += loc_new_loss;
             for(int i = 0; i < num_proc; i++){
-                MPI_Recv(&loc_new_loss, data->glo_fea_dim, MPI_FLOAT, i, 99, MPI_COMM_WORLD, &status);
+                MPI_Recv(&loc_new_loss, data->glo_fea_dim, MPI_FLOAT, i,
+                        99, MPI_COMM_WORLD, &status);
                 glo_new_loss += loc_new_loss;
             }
 
             //LOG(INFO) << "masterid:" << MASTER_ID << std::endl;
-            //LOG(INFO) << "before reduce rank:" << rank <<" loc_new_loss:" << loc_new_loss << " glo_loss:" << glo_loss << std::endl;
-            //MPI_Allreduce(&loc_new_loss, &glo_new_loss, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-            //LOG(INFO) << "after reduce rank:" << rank << " glo_new_loss:" << glo_new_loss << " glo_loss:" << glo_loss << std::endl;
-            if(glo_new_loss <= glo_loss + lambda * cblas_ddot(data->glo_fea_dim, (double*)glo_sub_g, 1, (double*)glo_g, 1)){
-                break;
-            }
+            //LOG(INFO) << "before reduce rank:" << rank <<" loc_new_loss:"
+            //          << loc_new_loss << " glo_loss:" << glo_loss
+            //          << std::endl;
+            //MPI_Allreduce(&loc_new_loss, &glo_new_loss, 1, MPI_DOUBLE,
+            //              MPI_SUM, MPI_COMM_WORLD);
+            //LOG(INFO) << "after reduce rank:" << rank << " glo_new_loss:"
+            //          << glo_new_loss << " glo_loss:" << glo_loss
+            //          << std::endl;
+            double expected_loss = glo_loss + lambda *
+                cblas_ddot(data->glo_fea_dim, (double*)glo_sub_g,
+                           1, (double*)glo_g, 1);
+                if(glo_new_loss <= expected_loss){
+                    break;
+                }
+
             lambda *= backoff;
             //LOG(INFO) << lambda << std::endl;
             if(lambda <= 1e-6) break;
+            LOG(INFO) << "lambda is less than 1e-6 in line search, "
+                << "lambda value [" << lambda << " ]" << std::endl;
         }
     }
 }
 
 void OWLQN::two_loop(){
     cblas_dcopy(data->glo_fea_dim, glo_sub_g, 1, glo_q, 1);
-    /*for(int i = 0; i < data->glo_fea_dim; i++){
-      if(rank == 0) std::cout<<glo_q[i]<<std::endl;
-      }*/
-    if(now_m > m) now_m = m; 
-    //std::cout<<"now_m "<<now_m<<std::endl;
+    if(now_m > m) now_m = m;
     for(int loop = now_m-1; loop >= 0; --loop){
-        glo_ro_list[loop] = cblas_ddot(data->glo_fea_dim, &(*glo_y_list)[loop], 1, &(*glo_s_list)[loop], 1);
-        /*
-           for(int i = 0; i < now_m; i++){
-           for(int j = 0; j < data->glo_fea_dim; j++){
-           if(rank == 0) std::cout<<"glo_s_list["<<i<<"] = "<<glo_s_list[i][j]<<" ";
-           }
-           std::cout<<std::endl;
-           }*/
-        glo_alpha_list[loop] = cblas_ddot(data->glo_fea_dim, &(*glo_s_list)[loop], 1, (double*)glo_q, 1) / (glo_ro_list[loop] + 1.0);
-        //std::cout<<glo_alpha_list[loop]<<std::endl;
-        cblas_daxpy(data->glo_fea_dim, -1 * glo_alpha_list[loop], &(*glo_y_list)[loop], 1, (double*)glo_q, 1);
-        /*for(int i = 0; i < data->glo_fea_dim; i++){
-          if(rank == 0) std::cout<<glo_q[i]<<std::endl;
-          }*/
+        glo_ro_list[loop] =
+            cblas_ddot(data->glo_fea_dim, &(*glo_y_list)[loop],
+                    1, &(*glo_s_list)[loop], 1);
+        glo_alpha_list[loop] =
+            cblas_ddot(data->glo_fea_dim, &(*glo_s_list)[loop],
+                    1, (double*)glo_q, 1) /
+            (glo_ro_list[loop] + 1.0);
+        cblas_daxpy(data->glo_fea_dim, -1 * glo_alpha_list[loop],
+                &(*glo_y_list)[loop], 1, (double*)glo_q, 1);
     }
-    //std::cout<<step<<std::endl;
     if(step != 0){
-        double ydoty = cblas_ddot(data->glo_fea_dim, glo_s_list[now_m - 1], 1, glo_y_list[now_m - 1], 1);
-        float gamma = glo_ro_list[now_m - 1]/ydoty;
+        double ydoty =
+            cblas_ddot(data->glo_fea_dim, glo_s_list[now_m - 1],
+                    1, glo_y_list[now_m - 1], 1);
+        float gamma = glo_ro_list[now_m - 1] / ydoty;
         cblas_dscal(data->glo_fea_dim, gamma, (double*)glo_q, 1);
     }
-    //std::cout<<step<<std::endl;
     for(int loop = 0; loop < now_m; ++loop){
-        double beta = cblas_ddot(data->glo_fea_dim, &(*glo_y_list)[loop], 1, (double*)glo_q, 1)/(glo_ro_list[loop] + 1.0);
-        //std::cout<<"beta "<<beta<<std::endl;
-        cblas_daxpy(data->glo_fea_dim, glo_alpha_list[loop] - beta, &(*glo_s_list)[loop], 1, (double*)glo_q, 1);
+        double beta =
+            cblas_ddot(data->glo_fea_dim, &(*glo_y_list)[loop],
+                    1, (double*)glo_q, 1) /
+            (glo_ro_list[loop] + 1.0);
+        cblas_daxpy(data->glo_fea_dim, glo_alpha_list[loop] - beta,
+                &(*glo_s_list)[loop], 1, (double*)glo_q, 1);
     }
-    /*
-       for(int i = 0; i < data->glo_fea_dim; i++){
-       if(rank == 0) std::cout<<glo_q[i]<<std::endl;
-       }
-       */
 }
 
 void OWLQN::update_state(){
-
     //update lbfgs memory
     update_memory();//not distributed
 
     //update w
-    std::swap(glo_w, glo_new_w); 
+    std::swap(glo_w, glo_new_w);
 
     //update loss
     glo_loss = glo_new_loss;
@@ -351,13 +365,18 @@ void OWLQN::update_state(){
     //update step count
     step++;
 }
+
 void OWLQN::update_memory(){
     //update slist
-    cblas_daxpy(data->glo_fea_dim, -1, (double*)glo_w, 1, (double*)glo_new_w, 1);
-    cblas_dcopy(data->glo_fea_dim, (double*)glo_new_w, 1, (double*)glo_s_list[now_m % m], 1);
+    cblas_daxpy(data->glo_fea_dim, -1, (double*)glo_w, 1,
+            (double*)glo_new_w, 1);
+    cblas_dcopy(data->glo_fea_dim, (double*)glo_new_w, 1,
+            (double*)glo_s_list[now_m % m], 1);
     //update ylist
-    cblas_daxpy(data->glo_fea_dim, -1, (double*)glo_g, 1, (double*)glo_new_g, 1);
-    cblas_dcopy(data->glo_fea_dim, (double*)glo_new_g, 1, (double*)glo_y_list[now_m % m], 1);
+    cblas_daxpy(data->glo_fea_dim, -1, (double*)glo_g, 1,
+            (double*)glo_new_g, 1);
+    cblas_dcopy(data->glo_fea_dim, (double*)glo_new_g, 1,
+            (double*)glo_y_list[now_m % m], 1);
     now_m++;
 }
 
@@ -366,8 +385,9 @@ bool OWLQN::meet_criterion(){
     return false;
 }
 
-void OWLQN::save_model(){
-    if(0 == rank) {
+void OWLQN::save_model() {
+    //master process save the model
+    if(MASTERID == rank) {
         time_t rawtime;
         struct tm* timeinfo;
         char buffer[80];
@@ -381,7 +401,10 @@ void OWLQN::save_model(){
         double wi = 0.0;
         for(int i = 0; i < data->glo_fea_dim; ++i) {
             wi = glo_new_w[i];
-            md << i << ':' << wi << ' ';
+            md << i << ':' << wi;
+            if(i != data->glo_fea_dim - 1){
+                md << ' ';
+            }
         }
         md.close();
     }
@@ -390,47 +413,63 @@ void OWLQN::save_model(){
 void OWLQN::owlqn(){
     while(true){
         MPI_Status status;
-        calculate_gradient(); //distributed, calculate gradient is distributed
+
+        //distributed, worker process calculate local gradient
+        calculate_gradient();
+
+        //communication
+        //worker process send local gradient to master process
         if(rank != MASTERID){
-            MPI_Send(loc_g, data->glo_fea_dim, MPI_DOUBLE, MASTERID, 99, MPI_COMM_WORLD);
+            MPI_Send(loc_g, data->glo_fea_dim, MPI_DOUBLE, MASTERID,
+                    99, MPI_COMM_WORLD);
         } else if(rank == MASTERID){
+            //communication
+            //master process gather all local gradient
+            //coculated by worker process
             for(int i = 1; i < num_proc; i++){
-                MPI_Recv(glo_g, data->glo_fea_dim, MPI_DOUBLE, i, 99, MPI_COMM_WORLD, &status);
+                MPI_Recv(glo_g, data->glo_fea_dim, MPI_DOUBLE, i,
+                        99, MPI_COMM_WORLD, &status);
             }
-            //LOG(INFO) << "process " << rank << " calculate gradient over" << std::endl << std::flush;
-            calculate_subgradient(); //not distributed, only on master process
-            //std::cout<<"-------------------------------------------"<<std::endl;
-            //LOG(INFO) << "process " << rank << " calculate sub-gradient over" << std::endl << std::flush;
-            two_loop();//not distributed, only on master process
-            //LOG(INFO) << "process " << rank << " calculate two-loop over" << std::endl << std::flush;
-            fix_dir_glo_q();//not distributed, orthant limited
-            //LOG(INFO) << "process " << rank << " fix-dir over" << std::endl << std::flush;
+
+            //not distributed, only on master process
+            calculate_subgradient();
+            two_loop();
+            fix_dir_glo_q();
+
+            //communication
+            //master process send new global gradient to workder process
             for(int i = 1; i < num_proc; i++){
-                MPI_Send(glo_q, data->glo_fea_dim, MPI_DOUBLE, i, 999, MPI_COMM_WORLD);
+                MPI_Send(glo_q, data->glo_fea_dim, MPI_DOUBLE, i,
+                        999, MPI_COMM_WORLD);
             }
         }
-        if(rank != 0){
+        //communication
+        //workder process get global gradient from master process
+        if(rank != MASTERID){
             for(int i = 1; i < num_proc; i++){
-                MPI_Recv(glo_q, data->glo_fea_dim, MPI_DOUBLE, i, 999, MPI_COMM_WORLD, &status);
+                MPI_Recv(glo_q, data->glo_fea_dim, MPI_DOUBLE, i,
+                        999, MPI_COMM_WORLD, &status);
             }
         }
-        line_search();//distributed, calculate loss is distributed
+        //distributed, calculate loss is distributed
+        line_search();
+
+        //not distributed, only on master process
         fix_dir_glo_new_w();
 
-        //std::cout<<step<<std::endl;
-        if(meet_criterion()){//not distributed
+        //not distributed, only on master process
+        if(meet_criterion()){
+            //not distributed, only on master process
             save_model();
-            //std::cout<<step<<std::endl;
             break;
         } else {
-            LOG(INFO) << "process " << rank << " step " << step << std::endl << std::flush;
-            LOG(INFO) << "======================================" << std::endl << std::flush;
-            //update_state();
+            LOG(INFO) << "process " << rank << " step " << step
+                << std::endl << std::flush;
+            LOG(INFO) << "======================================"
+                << std::endl << std::flush;
+            update_state();
         }
     }
-    /*for(int j = 0; j < data->glo_fea_dim; j++){
-      std::cout<<"glow["<<j<<"] "<<glo_w[j]<<std::endl;
-      }*/
 }
 
 void OWLQN::run(){
