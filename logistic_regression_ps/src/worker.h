@@ -12,14 +12,17 @@ namespace linear{
 class Worker : public ps::App{
     public:
         Worker(const char *file_path){
-            data = new Load_Data(file_path);
+	    rank = ps::MyRank();
+	    snprintf(data_path, 1024, "%s-%05d", file_path, rank);
+    	    std::cout<<data_path<<std::endl;
+            data = new Load_Data(data_path);
         }
         ~Worker(){
             delete data;
         } 
-        virtual void ProcessRequest(ps::Message* request){
-            Process();
-        }
+
+        virtual void ProcessRequest(ps::Message* request){ }
+
         float sigmoid(float x){
             if(x < -30) return 1e-6;
             else if(x > 30) return 1.0;
@@ -28,8 +31,14 @@ class Worker : public ps::App{
                 return ex / (1.0 + ex);
             }
         }
-        void Process(){
+
+	virtual bool Run(){
+	    Process();
+	}
+
+        virtual void Process(){
             for(int i = 0; i < step; i++){
+		std::cout<<i<<std::endl;
                 data->load_data_minibatch(1000);
                 std::vector<float> w;
                 std::vector<float> g;
@@ -45,6 +54,9 @@ class Worker : public ps::App{
                         values.push_back(value);
                     }
                     kv_.Wait(kv_.Pull(keys, &w));
+		    //for(int i = 0; i < keys.size(); i++){
+		    //	std::cout<<keys[i]<<":"<<w[i]<<std::endl;	
+		    //}
                     for(int j = 0; j < w.size(); j++){
                         wx += w[j] * values[j];
                     }
@@ -54,10 +66,12 @@ class Worker : public ps::App{
                         g[j] += (pctr - data->label[i]) * values[j];
                     }
                 }//end for
-            }
+            }//end for
         }
 	
     Load_Data *data;
+    char data_path[1024];
+    int rank;
     float alpha = 1.0;
     float beta = 1.0;
     float lambda1 = 0.0;
