@@ -56,9 +56,9 @@ class Worker : public ps::App{
                         values.push_back(value);
                     }
                     kv_.Wait(kv_.Pull(keys, &w));
-		    //for(int i = 0; i < keys.size(); i++){
-		    //	std::cout<<keys[i]<<":"<<w[i]<<std::endl;	
-		    //}
+		    for(int i = 0; i < keys.size(); i++){
+		    	std::cout<<keys[i]<<":"<<w[i]<<std::endl;	
+		    }
                     for(int j = 0; j < w.size(); j++){
                         wx += w[j] * values[j];
                     }
@@ -67,6 +67,7 @@ class Worker : public ps::App{
                     for(int j = 0; j < keys.size(); j++){
                         g[j] += (pctr - data->label[i]) * values[j];
                     }
+		    kv_.Wait(kv_.Push(keys, g));
                 }//end for
             }//end for
         }
