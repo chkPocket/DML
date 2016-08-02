@@ -31,13 +31,16 @@ public:
         }
     }
 
+    ~Load_Data(){
+        fin_.close();
+    }
+
     void load_data_minibatch(const int num){
         fea_matrix.clear();
-	    std::cout<<"load batch data start..."<<std::endl;
-
+	std::cout<<"load batch data start..."<<std::endl;
     	for(int i = 0; i < num; i++){
+            std::getline(fin_, line);
 	    if(fin_.eof()) break;
-	    std::getline(fin_, line);
             key_val.clear();
             const char *pline = line.c_str();
             if(sscanf(pline, "%d%n", &y, &nchar) >= 1){
@@ -47,17 +50,13 @@ public:
                     pline += nchar;
                     sf.idx = index;
                     sf.val = value;
-		    //std::cout<<index<<":"<<value<<std::endl;
                     key_val.push_back(sf);
                 }
             }
             fea_matrix.push_back(key_val);
-	}
+	}//end for
     }
 
-    ~Load_Data(){
-        fin_.close();
-    };
 };
 
 }//end linear
