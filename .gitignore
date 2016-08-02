@@ -4,3 +4,4 @@
 *.o
 log
 model
+logistic_regression_mpi/train
