@@ -42,6 +42,7 @@ class Worker : public ps::App{
             for(int i = 0; i < step; i++){
 		std::cout<<"step "<<i<<std::endl;
                 data->load_data_minibatch(10);
+	        if(data->fea_matrix.size() == 0) break;
                 std::vector<float> w;
                 std::vector<float> g;
                 std::vector<ps::Key> keys;
