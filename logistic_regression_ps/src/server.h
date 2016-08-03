@@ -17,12 +17,18 @@ namespace linear{
         static int64_t new_w;
     };  
 
+    template <typename T> 
+    inline void TSave(Stream* fo, T* const ptr){
+	fo->Write(&ptr->w, sizeof(float));
+    }
     struct FTRLEntry{
         float w = 0;
         float z = 0;
         float sq_cum_grad = 0;
         inline void Load(Stream *fi) { }//must has
-        inline void Save(Stream *fo) const { }//must has
+        inline void Save(Stream *fo) const {
+	    TSave(fo, this); 
+	}//must has
         inline bool Empty() const { }//must has
     };
 
