@@ -39,6 +39,7 @@ class Worker : public ps::App{
 	    snprintf(data_path, 1024, "%s-%05d", file_path, rank);
 	    std::cout<<data_path<<std::endl;
 	    data = new Load_Data(data_path);
+	    
             for(int i = 0; i < step; i++){
 		std::cout<<"step "<<i<<std::endl;
                 data->load_data_minibatch(10);
@@ -52,6 +53,10 @@ class Worker : public ps::App{
                     float wx = bias;
                     for(int j = 0; j < data->fea_matrix[i].size(); j++){
                         long int index = data->fea_matrix[i][j].idx;
+			featureIter = std::find(featureIndex.begin(), featureIndex.end(), index);
+		        if(featureIter == featureIndex.end()){
+			    featureIndex.push_back(index);
+			}
                         keys.push_back(index);
                         float value = data->fea_matrix[i][j].val;
                         values.push_back(value);
@@ -71,8 +76,11 @@ class Worker : public ps::App{
 		    kv_.Wait(kv_.Push(keys, g));
                 }//end for
             }//end for
+	    kv_.Wait(kv_.Pull(featureIndex, &w_all));
         }
-	
+    std::vector<ps::Key> featureIndex;
+    std::vector<ps::Key>::iterator featureIter;
+    std::vector<float> w_all;	
     Load_Data *data;
     const char *file_path;
     char data_path[1024];
@@ -85,7 +93,6 @@ class Worker : public ps::App{
     int step = 1000;
     ps::KVWorker<float> kv_;
 };
-
 
 }
 }
