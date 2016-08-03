@@ -18,7 +18,7 @@ lr_main.o: src/lr_main.cpp ../repo/ps-lite/build/libps.a
 dump_model: dump.o ../repo/dmlc-core/libdmlc.a
 	$(CPP) $(CPP_tag) -o $@ $^ $(INCLUDE)
 
-dump.o: src/dump.cc ../repo/dmlc-core/libdmlc.a 
+dump.o: src/dump.cc ../repo/dmlc-core/libdmlc.a ../repo/ps-lite/deps/lib/libglog.a 
 	$(CPP) $(CPP_tag) -c src/dump.cc $(INCLUDE)
 	
 

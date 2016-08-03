@@ -1,9 +1,9 @@
-#include "dmlc/io.h"
 #include <iostream>
 #include <string>
-#include <stdlib.h>
 #include <string.h>
 #include <unordered_map>
+#include "dmlc/io.h"
+#include "dmlc/logging.h"
 
 using namespace std;
 using namespace dmlc;
@@ -22,16 +22,16 @@ class Dump {
     float z= 0;
     float sq_cum_grad = 0;
     inline void Load(Stream *fi) {
-      fi->Read(&w, sizeof(float)), sizeof(float);
-      fi->Read(&z, sizeof(float)), sizeof(float);
-      fi->Read(&sq_cum_grad, sizeof(float)), sizeof(float);
+      CHECK_EQ(fi->Read(&w, sizeof(float)), sizeof(float));
+      CHECK_EQ(fi->Read(&z, sizeof(float)), sizeof(float));
+      CHECK_EQ(fi->Read(&sq_cum_grad, sizeof(float)), sizeof(float));
     }
     
     inline bool Empty() const { return w == 0;}
   };
 
   void LoadModel(const std::string filename) {
-    Stream* fi = Stream::Create(filename.c_str(), "r");
+    Stream* fi = CHECK_NOTNULL(Stream::Create(filename.c_str(), "r"));
     K key;
     while (true) {
       if (fi->Read(&key, sizeof(K)) != sizeof(K)) break;
@@ -42,7 +42,7 @@ class Dump {
 
   // how to dump the info
   void DumpModel(const std::string filename) {
-    Stream* fo = Stream::Create(filename.c_str(), "w");
+    Stream* fo = CHECK_NOTNULL(Stream::Create(filename.c_str(), "w"));
     dmlc::ostream os(fo);
     int dumped = 0;
     for (const auto& it : data_) {
@@ -69,6 +69,7 @@ int main(int argc, char *argv[]) {
     cout << "Usage: <model_in> <dump_out>\n";
     return 0;
   }
+  //google::InitGoogleLogging(argv[0]);
   string model_in, dump_out;
   for (int i = 1; i < argc; ++i) {
     char name[256], val[256];
