@@ -5,14 +5,9 @@
 namespace dmlc{
 namespace linear{
 
-//struct DataParCmd{
-//    DataParCmd
-//};
-
 class Worker : public ps::App{
     public:
-        Worker(const char *filepath) : file_path(filepath){
-        }
+        Worker(const char *filepath) : file_path(filepath){ }
         ~Worker(){
             delete data;
         } 
@@ -37,49 +32,50 @@ class Worker : public ps::App{
         virtual void Process(){
 	    rank = ps::MyRank();
 	    snprintf(data_path, 1024, "%s-%05d", file_path, rank);
-	    std::cout<<data_path<<std::endl;
 	    data = new Load_Data(data_path);
 	    
             for(int i = 0; i < step; i++){
-		std::cout<<"step "<<i<<std::endl;
                 data->load_data_minibatch(10);
 	        if(data->fea_matrix.size() == 0) break;
-                std::vector<float> w;
-                std::vector<float> g;
-                std::vector<ps::Key> keys;
-                std::vector<float> values;
+                std::vector<float> mb_w;
+                std::vector<float> mb_g;
+                std::vector<ps::Key> mb_keys;
+                std::vector<float> mb_values;
                 for(int i = 0; i < data->fea_matrix.size(); i++){
-                    keys.clear(); values.clear();
+                    mb_keys.clear(); mb_values.clear();
                     float wx = bias;
                     for(int j = 0; j < data->fea_matrix[i].size(); j++){
                         long int index = data->fea_matrix[i][j].idx;
-			featureIter = std::find(featureIndex.begin(), featureIndex.end(), index);
-		        if(featureIter == featureIndex.end()){
-			    featureIndex.push_back(index);
-			}
-                        keys.push_back(index);
+                        mb_keys.push_back(index);
                         float value = data->fea_matrix[i][j].val;
-                        values.push_back(value);
+                        mb_values.push_back(value);
                     }
-                    kv_.Wait(kv_.Pull(keys, &w));
-		    for(int i = 0; i < keys.size(); i++){
-		    	std::cout<<keys[i]<<":"<<w[i]<<std::endl;	
-		    }
-                    for(int j = 0; j < w.size(); j++){
-                        wx += w[j] * values[j];
+                    kv_.Wait(kv_.Pull(mb_keys, &mb_w));
+		    //for(int i = 0; i < keys.size(); i++){
+		    //	std::cout<<keys[i]<<":"<<w[i]<<std::endl;	
+		    //}
+                    for(int j = 0; j < mb_w.size(); j++){
+                        wx += mb_w[j] * mb_values[j];
                     }
                     float pctr = sigmoid(wx);
-                    g.resize(keys.size());
-                    for(int j = 0; j < keys.size(); j++){
-                        g[j] += (pctr - data->label[i]) * values[j];
+                    mb_g.resize(mb_keys.size());
+                    for(int j = 0; j < mb_keys.size(); j++){
+                        mb_g[j] += (pctr - data->label[i]) * mb_values[j];
                     }
-		    kv_.Wait(kv_.Push(keys, g));
+		    kv_.Wait(kv_.Push(mb_keys, mb_g));
                 }//end for
             }//end for
-	    kv_.Wait(kv_.Pull(featureIndex, &w_all));
+	    std::set<long int>::iterator iter;
+	    for(iter = data->feaIdx.begin(); iter != data->feaIdx.end(); iter++){
+		fea_all.push_back(*iter);	
+	    }
+	    std::cout<<"feaIdx size = "<<data->feaIdx.size()<<std::endl;
+	    kv_.Wait(kv_.Pull(fea_all, &w_all));
+	    for(int i = 0; i < fea_all.size(); i++){
+		std::cout<<fea_all[i]<<":"<<w_all[fea_all[i]]<<std::endl;
+	    }
         }
-    std::vector<ps::Key> featureIndex;
-    std::vector<ps::Key>::iterator featureIter;
+    std::vector<ps::Key> fea_all;
     std::vector<float> w_all;	
     Load_Data *data;
     const char *file_path;

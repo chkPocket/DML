@@ -4,6 +4,8 @@
 #include <fstream>
 #include <iostream>
 #include <vector>
+#include <set>
+
 namespace dmlc{
 namespace linear{
 
@@ -22,6 +24,8 @@ public:
     std::string line;
     int y, value, nchar;
     long int index;
+    std::set<long int> feaIdx;    
+    std::set<long int>::iterator setIter;
 
     Load_Data(const char * file_name){
 	fin_.open(file_name, std::ios::in);
@@ -49,6 +53,8 @@ public:
                 while(sscanf(pline, "%ld:%d%n", &index, &value, &nchar) >= 2){
                     pline += nchar;
                     sf.idx = index;
+		    setIter = feaIdx.find(index);
+		    if(setIter == feaIdx.end()) feaIdx.insert(index);
                     sf.val = value;
                     key_val.push_back(sf);
                 }
