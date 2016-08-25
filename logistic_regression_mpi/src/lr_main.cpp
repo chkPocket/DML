@@ -6,18 +6,21 @@
 #include "predict.h"
 //#include "gtest/gtest.h"
 #include <glog/logging.h>
-#include "config.h"
 
 int main(int argc,char* argv[]){  
     int rank, nproc;
+    int namelen = 1024;
+    char processor_name[namelen];
     MPI_Init(&argc,&argv);
     MPI_Comm_rank(MPI_COMM_WORLD,&rank);
     MPI_Comm_size(MPI_COMM_WORLD,&nproc);
+    MPI_Get_processor_name(processor_name,&namelen);
     // Initialize Google's logging library.
     google::InitGoogleLogging(argv[0]);
     FLAGS_log_dir = "./log";
     LOG(INFO) << "my process rank: "<< rank <<", totoal process num: "<< nproc <<std::endl;
 
+    std::cout<<"my host = "<<processor_name<<" my rank = "<<rank<<std::endl;
     char train_data_path[1024];
     const char *train_data_file = argv[2];
     snprintf(train_data_path, 1024, "%s-%05d", train_data_file, rank);
@@ -26,8 +29,8 @@ int main(int argc,char* argv[]){
     snprintf(test_data_path, 1024, "%s-%05d", test_data_file, rank);
 
     std::string split_tag = " ";
-    Load_Data load_data; 
-    load_data.load_data(train_data_path, split_tag, rank, nproc);
+    Load_Data load_data(train_data_path); 
+    load_data.load_data_batch();
     //std::cout<<ld.fea_matrix.size()<<std::endl;    
     std::vector<float> model;
     if (strcmp(argv[1], "owlqn") == 0){
@@ -47,7 +50,7 @@ int main(int argc,char* argv[]){
         }
     }
 
-    load_data.load_data(test_data_path, split_tag, rank, nproc);
+    load_data.load_data_batch();
     Predict predict(&load_data, nproc, rank);
     predict.predict(model);
    
