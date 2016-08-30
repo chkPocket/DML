@@ -27,6 +27,8 @@ public:
     std::set<long int>::iterator setIter;
     int y, value, nchar;
     long int index;
+    long int loc_fea_dim = 0;
+    long int glo_fea_dim = 0;
 
     Load_Data(const char *file_name){
         fin_.open(file_name, std::ios::in);
@@ -39,9 +41,10 @@ public:
         fin_.close();
     }
 
-    void load_data_batch(){
+    void load_data_batch(int nproc, int rank){
+        MPI_Status status;
         fea_matrix.clear();
-        std::cout<<"load batch data start..."<<std::endl;
+        //std::cout<<"load batch data start..."<<std::endl;
         while(!fin_.eof()){
             std::getline(fin_, line);
             if(fin_.eof()) break;
@@ -53,6 +56,7 @@ public:
                 while(sscanf(pline, "%ld:%d%n", &index, &value, &nchar) >= 2){
                     pline += nchar;
                     sf.idx = index;
+                    if(index > loc_fea_dim) loc_fea_dim = index;
                     setIter = feaIdx.find(index);
                     if(setIter == feaIdx.end()){
                         feaIdx.insert(index);
@@ -63,9 +67,16 @@ public:
             }
             fea_matrix.push_back(key_val);
         }
+        if(rank != 0) {
+            MPI_Send(&loc_fea_dim, 1, MPI_LONG, 0, 90, MPI_COMM_WORLD);
+        }
+        else if(rank == 0){ 
+            for(int i = 1; i < nproc; i++){
+                MPI_Recv(&loc_fea_dim, 1, MPI_LONG, i, 90, MPI_COMM_WORLD, &status);
+                if(loc_fea_dim > glo_fea_dim) glo_fea_dim = loc_fea_dim;
+            }
+        }
     }
-    long int loc_fea_dim = 0;
-    long int glo_fea_dim = 0;
     long int loc_ins_num = 0;
 private:
 };

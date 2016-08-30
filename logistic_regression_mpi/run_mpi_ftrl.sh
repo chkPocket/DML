@@ -1,5 +1,5 @@
 #!/bin/bash
-process_number=4
+process_number=3
 Ip=("10.101.2.89" "10.101.2.90")
 for ip in ${Ip[@]}
 do
