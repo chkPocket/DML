@@ -1,3 +1,5 @@
+#ifndef OWLQN_H_
+#define OWLQN_H_
 #include "mpi.h"
 #include <iostream>
 #include <vector>
@@ -6,45 +8,58 @@
 #include <glog/logging.h>
 #include <cstdlib>
 #include <ctime>
+#include <string>
+#include <fstream>
+#include <vector>
+#include <math.h>
+#include <stdlib.h>
+#include <iostream>
+#include <string.h>
+#include <deque>
+#include <pthread.h>
+#include "load_data.h"
 
+#define MASTERID 0
 #define NUM 999
 
 extern "C"{
 #include <cblas.h>
 }
 
-OWLQN::OWLQN(Load_Data* ld, int total_num_proc, int my_rank)
-    : data(ld), num_proc(total_num_proc), rank(my_rank) {
-        init();
+class OWLQN{
+    public:
+    OWLQN(Load_Data* ld, int total_num_proc, int my_rank)
+        : data(ld), num_proc(total_num_proc), rank(my_rank) {
+            init();
     }
 
-OWLQN::~OWLQN(){
-    delete[] glo_w;
-    delete[] glo_new_w;
+    ~OWLQN(){
+        delete[] glo_w;
+        delete[] glo_new_w;
 
-    delete[] loc_z;
+        delete[] loc_z;
 
-    delete[] loc_g;
-    delete[] glo_g;
-    delete[] loc_new_g;
-    delete[] glo_new_g;
+        delete[] loc_g;
+        delete[] glo_g;
+        delete[] loc_new_g;
+        delete[] glo_new_g;
 
-    delete[] glo_sub_g;
+        delete[] glo_sub_g;
 
-    delete[] glo_q;
+        delete[] glo_q;
 
-    for(int i = 0; i < m; i++){
-        delete[] glo_s_list[i];
-        delete[] glo_y_list[i];
+        for(int i = 0; i < m; i++){
+            delete[] glo_s_list[i];
+            delete[] glo_y_list[i];
+        }
+        delete[] glo_s_list;
+        delete[] glo_y_list;
+
+        delete[] glo_alpha_list;
+        delete[] glo_ro_list;
     }
-    delete[] glo_s_list;
-    delete[] glo_y_list;
 
-    delete[] glo_alpha_list;
-    delete[] glo_ro_list;
-}
-
-float OWLQN::gaussrand(){
+    float gaussrand(){
     static double V1, V2, S;
     static int phase = 0;
     double X;
@@ -64,9 +79,9 @@ float OWLQN::gaussrand(){
     }
     phase = 1 - phase;
     return X;
-}
+    }
 
-void OWLQN::init(){
+    void init(){
     c = 1.0;
 
     glo_w = new double[data->glo_fea_dim]();
@@ -117,9 +132,9 @@ void OWLQN::init(){
     backoff = 0.5;
 
     step = 0;
-}
+    }
 
-void OWLQN::calculate_z(){
+    void calculate_z(){
     size_t idx = 0;
     double val = 0;
     for(int i = 0; i < data->loc_ins_num; i++) {
@@ -130,9 +145,9 @@ void OWLQN::calculate_z(){
             loc_z[i] += glo_w[idx] * val;
         }
     }
-}
+    }
 
-double OWLQN::sigmoid(double x){
+    double sigmoid(double x){
     if(x < -30){
         return 1e-6;
     }
@@ -143,9 +158,9 @@ double OWLQN::sigmoid(double x){
         double ex = pow(2.718281828, x);
         return ex / (1.0 + ex);
     }
-}
+    }
 
-double OWLQN::calculate_loss(double *para_w){
+    double calculate_loss(double *para_w){
     double f = 0.0, val = 0.0, wx = 0.0, single_loss = 0.0, regular_loss = 0.0;
     int index;
     for(int i = 0; i < data->fea_matrix.size(); i++){
@@ -165,9 +180,9 @@ double OWLQN::calculate_loss(double *para_w){
         regular_loss += abs( *(para_w + index) );
     }
     return -f / data->fea_matrix.size() + regular_loss;
-}
+    }
 
-void OWLQN::calculate_gradient(){
+    void calculate_gradient(){
     int index, single_feature_num;
     double value;
     int instance_num = data->fea_matrix.size();
@@ -196,9 +211,9 @@ void OWLQN::calculate_gradient(){
     //std::cout << "glo_g[" << index << "]: " << glo_g[index] << " after normal "
     //          << "in rank " << rank <<std::endl << std::flush;	
     }*/
-}
+    }
 
-void OWLQN::calculate_subgradient(){
+    void calculate_subgradient(){
     if(c == 0.0){
         for(int j = 0; j < data->glo_fea_dim; j++){
             *(glo_sub_g + j) = -1 * *(glo_g + j);
@@ -233,35 +248,35 @@ void OWLQN::calculate_subgradient(){
        std::cout<<"glo_sub_g["<<i<<"]: "<<glo_sub_g[i]
                 <<" in rank:" <<rank<<std::endl;
        }*/
-}
+    }
 
-void OWLQN::fix_dir_glo_q(){
+    void fix_dir_glo_q(){
     /*
        for(int j = 0; j < data->glo_fea_dim; j++){
-//if(rank == 0) std::cout<<"glo_q["<<j<<"]"<<glo_q[j]<<std::endl;
-if(rank == 0) std::cout<<"glo_sub_g["<<j<<"]"<<glo_sub_g[j]<<std::endl;
-}
-*/
+    //if(rank == 0) std::cout<<"glo_q["<<j<<"]"<<glo_q[j]<<std::endl;
+    if(rank == 0) std::cout<<"glo_sub_g["<<j<<"]"<<glo_sub_g[j]<<std::endl;
+    }
+    */
     for(int j = 0; j < data->glo_fea_dim; ++j){
         if(*(glo_q + j) * *(glo_sub_g +j) >= 0){
             *(glo_q + j) = 0.0;
         }
     }
-/*
+    /*
    for(int j = 0; j < data->glo_fea_dim; ++j){
    std::cout<<"glo_q["<<j<<"]: "<<glo_q[j]<<std::endl;
    }
    */
-}
+    }
 
-void OWLQN::fix_dir_glo_new_w(){
+    void fix_dir_glo_new_w(){
     for(int j = 0; j < data->glo_fea_dim; j++){
         if(*(glo_new_w + j) * *(glo_w + j) >=0) *(glo_new_w + j) = 0.0;
         else *(glo_new_w + j) = *(glo_new_w + j);
     }
-}
+    }   
 
-void OWLQN::line_search(){
+    void line_search(){
     MPI_Status status;
     while(true){
         if(rank == MASTERID){
@@ -316,9 +331,9 @@ void OWLQN::line_search(){
                 << "lambda value [" << lambda << " ]" << std::endl;
         }
     }
-}
+    }
 
-void OWLQN::two_loop(){
+    void two_loop(){
     cblas_dcopy(data->glo_fea_dim, glo_sub_g, 1, glo_q, 1);
     if(now_m > m) now_m = m;
     for(int loop = now_m-1; loop >= 0; --loop){
@@ -347,9 +362,9 @@ void OWLQN::two_loop(){
         cblas_daxpy(data->glo_fea_dim, glo_alpha_list[loop] - beta,
                 &(*glo_s_list)[loop], 1, (double*)glo_q, 1);
     }
-}
+    }
 
-void OWLQN::update_state(){
+    void update_state(){
     //update lbfgs memory
     update_memory();//not distributed
 
@@ -364,9 +379,9 @@ void OWLQN::update_state(){
 
     //update step count
     step++;
-}
+    }
 
-void OWLQN::update_memory(){
+    void update_memory(){
     //update slist
     cblas_daxpy(data->glo_fea_dim, -1, (double*)glo_w, 1,
             (double*)glo_new_w, 1);
@@ -378,14 +393,14 @@ void OWLQN::update_memory(){
     cblas_dcopy(data->glo_fea_dim, (double*)glo_new_g, 1,
             (double*)glo_y_list[now_m % m], 1);
     now_m++;
-}
+    } 
 
-bool OWLQN::meet_criterion(){
+    bool meet_criterion(){
     if(step == 300) return true;
     return false;
-}
+    } 
 
-void OWLQN::save_model() {
+    void save_model() {
     //master process save the model
     if(MASTERID == rank) {
         time_t rawtime;
@@ -408,9 +423,9 @@ void OWLQN::save_model() {
         }
         md.close();
     }
-}
+    }
 
-void OWLQN::owlqn(){
+    void owlqn(){
     while(true){
         MPI_Status status;
 
@@ -470,8 +485,43 @@ void OWLQN::owlqn(){
             update_state();
         }
     }
-}
+    }
+    double* glo_w; //global model parameter
+    private:
+    Load_Data* data;
 
-void OWLQN::run(){
-    owlqn();
-}
+    int num_proc; // total num of process in MPI comm world
+    int rank; // my process rank in MPT comm world
+    size_t step;
+
+    double c; //l1 norm parameter
+
+    double* glo_new_w; //model paramter after line search
+
+    double* loc_z; //z = W*Xi, z is input for sigmoid(z)
+
+    double* loc_g; //gradient of loss function compute by data on this process
+    double* glo_g; //gradient of loss function compute by data on all process
+    double* loc_new_g; //new local gradient
+    double* glo_new_g; //new global gradient
+
+    double* glo_sub_g; //global sub gradient
+
+    double* glo_q; //global search direction
+
+    int m; //number memory data we want in owlqn(lbfgs)
+    int now_m; //num of memory data we got now
+    double** glo_s_list; //global s list in lbfgs two loop
+    double** glo_y_list; //global y list in lbfgs two loop
+    double* glo_alpha_list; //global alpha list in lbfgs two loop
+    double* glo_ro_list; //global ro list in lbfgs two loop
+
+    double loc_loss; //local loss
+    double glo_loss; //global loss
+    double loc_new_loss; //new local loss
+    double glo_new_loss; //new global loss
+
+    double lambda; //learn rate in line search
+    double backoff; //back rate in line search
+};
+#endif
