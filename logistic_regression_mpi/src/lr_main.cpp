@@ -36,7 +36,7 @@ int main(int argc,char* argv[]){
     std::vector<float> model;
     if (strcmp(argv[1], "owlqn") == 0){
         OWLQN owlqn(&train_data, nproc, rank);
-        owlqn.run();
+        owlqn.owlqn();
         for(int j = 0; j < train_data.glo_fea_dim; j++){
             //std::cout<<"w["<< j << "]: "<<ftrl.loc_w[j]<<std::endl;
             model.push_back(owlqn.glo_w[j]);
@@ -45,7 +45,7 @@ int main(int argc,char* argv[]){
     else if(strcmp(argv[1], "ftrl") == 0){
         FTRL ftrl(&train_data, nproc, rank);
         //std::cout<<"rank "<<rank<<"feature matrix size:"<<train_data.fea_matrix.size()<<" glo_fea_dim:"<<train_data.glo_fea_dim<<std::endl;
-        ftrl.run();
+        ftrl.ftrl();
         if(rank == 0){
             for(int j = 0; j < train_data.glo_fea_dim; j++){
 	            //std::cout<<"w["<< j << "]: "<<ftrl.loc_w[j]<<std::endl;
