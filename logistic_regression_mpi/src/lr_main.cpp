@@ -46,20 +46,18 @@ int main(int argc,char* argv[]){
         FTRL ftrl(&train_data, nproc, rank);
         //std::cout<<"rank "<<rank<<"feature matrix size:"<<train_data.fea_matrix.size()<<" glo_fea_dim:"<<train_data.glo_fea_dim<<std::endl;
         ftrl.ftrl();
-        if(rank == 0){
-            for(int j = 0; j < train_data.glo_fea_dim; j++){
-	            //std::cout<<"w["<< j << "]: "<<ftrl.loc_w[j]<<std::endl;
-	            model.push_back(ftrl.loc_w[j]);
-            }
+        for(int j = 0; j < train_data.glo_fea_dim; j++){
+	        //std::cout<<"w["<< j << "]: "<<ftrl.loc_w[j]<<std::endl;
+	        model.push_back(ftrl.loc_w[j]);
         }
     }
     //MPI_Barrier(MPI_COMM_WORLD); 
 
-    //Load_Data test_data(test_data_path);
-    //test_data.load_data_batch();
-    //std::cout<<"rank "<<rank<<"test feature matrix size:"<<test_data.fea_matrix.size()<<std::endl;
-    //Predict predict(&test_data, nproc, rank);
-    //predict.predict(model);
+    Load_Data test_data(test_data_path);
+    test_data.load_data_batch(nproc, rank);
+    std::cout<<"rank "<<rank<<"test feature matrix size:"<<test_data.fea_matrix.size()<<std::endl;
+    Predict predict(&test_data, nproc, rank);
+    predict.predict(model);
     MPI::Finalize();
     return 0;
 }

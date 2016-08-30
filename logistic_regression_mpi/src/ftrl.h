@@ -75,6 +75,7 @@ class FTRL{
         MPI_Status status;
         int index = 0, row = 0; float value = 0.0, pctr = 0.0;
         for(int i = 0; i < step; i++){
+            std::cout<<"step "<<i<<std::endl;
             row = i * batch_size;
 	        while( (row < (i + 1) * batch_size) && (row < data->fea_matrix.size()) ){
 	            float wx = bias;
@@ -92,7 +93,6 @@ class FTRL{
                 ++row;
             } 
             if(rank != 0){//send gradient to rank 0;
-                std::cout<<"rank = "<<rank<<std::endl;
                 MPI_Send(loc_g, data->glo_fea_dim, MPI_FLOAT, 0, 99, MPI_COMM_WORLD);
             }
             else if(rank == 0){
@@ -105,7 +105,6 @@ class FTRL{
                 }
             }
             else if(rank != 0){
-                std::cout<<"data->glo_fea_dim= "<<data->glo_fea_dim<<std::endl;
                 MPI_Recv(glo_w, data->glo_fea_dim, MPI_FLOAT, 0, 999, MPI_COMM_WORLD, &status);
             }
             //break;

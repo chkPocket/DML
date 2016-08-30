@@ -11,14 +11,16 @@ class Predict{
     ~Predict(){}
 
     void predict(std::vector<float> glo_w){
-    std::vector<float> predict_result;
-    for(int i = 0; i < data->loc_ins_num; i++) {
-	float x = 0.0;
-        for(int j = 0; j < data->fea_matrix[i].size(); j++) {
-            int idx = data->fea_matrix[i][j].idx;
-            float val = data->fea_matrix[i][j].val;
-            x += glo_w[idx] * val;
-        }
+        std::cout<<"glo_w size "<<glo_w.size()<<std::endl;
+        std::vector<float> predict_result;
+        for(int i = 0; i < data->fea_matrix.size(); i++) {
+	        float x = 0.0;
+            for(int j = 0; j < data->fea_matrix[i].size(); j++) {
+                int idx = data->fea_matrix[i][j].idx;
+                float val = data->fea_matrix[i][j].val;
+                x += glo_w[idx] * val;
+            }
+        
         if(x < -30){
             pctr = 1e-6;
         }
@@ -31,6 +33,7 @@ class Predict{
         }
         predict_result.push_back(pctr);
     }
+    
     for(size_t j = 0; j < predict_result.size(); j++){
         if(rank == 0){
 	     std::cout<<predict_result[j]<<"\t"<<1 - data->label[j]<<"\t"<<data->label[j]<<std::endl;
