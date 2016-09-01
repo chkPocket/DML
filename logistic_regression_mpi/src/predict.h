@@ -39,31 +39,31 @@ class Predict{
                 x += glo_w[idx] * val;
             }
         
-        if(x < -30){
-            pctr = 1e-6;
-        }
-        else if(x > 30){
-            pctr = 1.0;
-        }
-        else{
-            double ex = pow(2.718281828, x);
-            pctr = ex / (1.0 + ex);
-        }
+            if(x < -30){
+                pctr = 1e-6;
+            }
+            else if(x > 30){
+                pctr = 1.0;
+            }
+            else{
+                double ex = pow(2.718281828, x);
+                pctr = ex / (1.0 + ex);
+            }
 
-        int id = int(pctr*MAX_ARRAY_SIZE);
-        clkinfo clickinfo;
-        clickinfo.clk = data->label[i];
-        clickinfo.nclk = 1 - data->label[i];
-        clickinfo.idx = id;
-        result_list.push_back(clickinfo);
-    }
+            int id = int(pctr*MAX_ARRAY_SIZE);
+            clkinfo clickinfo;
+            clickinfo.clk = data->label[i];
+            clickinfo.nclk = 1 - data->label[i];
+            clickinfo.idx = id;
+            result_list.push_back(clickinfo);
+        }
     
         for(size_t j = 0; j < predict_result.size(); j++){
 	        std::cout<<predict_result[j]<<"\t"<<1 - data->label[j]<<"\t"<<data->label[j]<<std::endl;
         }
     }
 
-    int merge_clk(){
+    int merge_clk(){//merge local node`s clk
         bzero(g_nclk, MAX_ARRAY_SIZE * sizeof(float));
         bzero(g_clk, MAX_ARRAY_SIZE * sizeof(float));
         int cnt = result_list.size();
@@ -115,25 +115,22 @@ class Predict{
         }
     }
 
-
-    int mpi_peval(int nprocs, int rank){
-            double total_clk = 0.0;
-            double total_nclk = 0.0;
-            double auc = 0.0;
-            double total_auc = 0.0;
-
-            merge_clk();
-            mpi_auc(nprocs, rank, auc);
-
-            if(MASTER_ID == rank){
-                    printf("AUC = %lf\n", auc);
-            }
-    }
     void run(std::vector<float> w){
         predict(w);
-        mpi_peval(nproc, rank);
+        double total_clk = 0.0;
+        double total_nclk = 0.0;
+        double auc = 0.0;
+        double total_auc = 0.0;
+
+        merge_clk();
+        mpi_auc(nproc, rank, auc);
+
+        if(MASTER_ID == rank){
+                printf("AUC = %lf\n", auc);
+        }
 
     }
+
     private:
     Load_Data* data;
     std::vector<clkinfo> result_list;

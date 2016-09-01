@@ -57,7 +57,7 @@ int main(int argc,char* argv[]){
     test_data.load_data_batch(nproc, rank);
     std::cout<<"rank "<<rank<<"test feature matrix size:"<<test_data.fea_matrix.size()<<std::endl;
     Predict predict(&test_data, nproc, rank);
-    predict.predict(model);
+    predict.run(model);
     MPI::Finalize();
     return 0;
 }
