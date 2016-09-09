@@ -27,9 +27,6 @@ class FTRL{
         lambda1 = 0.0;
         lambda2 = 1.0;
         bias = 0.1; 
-
-        step = 50;
-        batch_size = 1000;
     }
 
     float sigmoid(float x){
@@ -76,10 +73,8 @@ class FTRL{
         MPI_Status status;
         int index = 0, row = 0; float value = 0.0, pctr = 0.0;
         int batch_num = data->fea_matrix.size() / batch_size;
-        std::cout<<"batch_num "<<batch_num<< " rank "<<rank<<std::endl;
         int batch_num_min = 0;
         MPI_Allreduce(&batch_num, &batch_num_min, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
-        std::cout<<"batch_num_min "<< batch_num_min<<std::endl;
         for(int i = 0; i < step; i++){
             std::cout<<"step "<<i<<std::endl;
             row = 0;
@@ -89,6 +84,7 @@ class FTRL{
                 std::cout<<"rank "<<rank<<" step "<<i<<" batch "<<batched<<std::endl;
                 if( (batched == batch_num_min - 5) ) break;
                 int lines = 0;
+
 	            while( lines < batch_size){
 	                float wx = bias;
 	                for(int col = 0; col < data->fea_matrix[row].size(); col++){//for one instance
@@ -104,7 +100,7 @@ class FTRL{
                     }
                     row++; lines++;
                 }//end batch while
-                //std::cout<<"step "<<i<<" after batch "<< rank <<std::endl;
+                
                 for(int col = 0; col < data->glo_fea_dim; col++){
                         loc_g[col] /= batch_size;
                 }
@@ -115,7 +111,6 @@ class FTRL{
                 else if(rank == 0){
                         update();
                 }
-                //std::cout<<"step "<<i<<" after update "<<rank<<std::endl;
                 //sync w
                 if(rank == 0){
                         for(int r = 1; r < num_proc; r++){
@@ -126,15 +121,15 @@ class FTRL{
                         MPI_Recv(loc_w, data->glo_fea_dim, MPI_FLOAT, 0, 999, MPI_COMM_WORLD, &status);
                 }
                 MPI_Barrier(MPI_COMM_WORLD);
-                //std::cout<<"step "<<i<<" after sync w "<<rank << std::endl;
             }//end while
         }//end all step for
     }//end ftrl
     float* loc_w;
+    int step;
+    int batch_size;
     private:
     int finish_flag;
     Load_Data* data;
-    int step;
 
     float* glo_w;
     float* loc_g;
@@ -144,13 +139,12 @@ class FTRL{
     float* loc_sigma;
     float* loc_n;
 
+    float bias;
     float alpha;
     float beta;
     float lambda1;
     float lambda2;
 
-    int batch_size;
-    float bias;
     int num_proc;
     int rank;
 };

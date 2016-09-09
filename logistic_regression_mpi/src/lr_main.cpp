@@ -21,18 +21,22 @@ int main(int argc,char* argv[]){
     LOG(INFO) << "my process rank: "<< rank <<", totoal process num: "<< nproc <<std::endl;
     std::cout<<"my host = "<<processor_name<<" my rank = "<<rank<<std::endl;
 
+    int stepnum = atoi(argv[2]);
+    int batchsize = atoi(argv[3]);
     char train_data_path[1024];
-    const char *train_data_file = argv[2];
-    snprintf(train_data_path, 1024, "%s-%05d", train_data_file, rank);
+    //const char *train_data_file = argv[4];
+    snprintf(train_data_path, 1024, "%s-%05d", argv[4], rank);
     char test_data_path[1024];
-    const char *test_data_file = argv[3];
-    snprintf(test_data_path, 1024, "%s-%05d", test_data_file, rank);
+    //const char *test_data_file = argv[5];
+    snprintf(test_data_path, 1024, "%s-%05d", argv[5], rank);
 
     Load_Data train_data(train_data_path); 
     train_data.load_data_batch(nproc, rank);
     MPI_Barrier(MPI_COMM_WORLD);
 
     std::vector<float> model;
+
+    
 
     if (strcmp(argv[1], "owlqn") == 0){
         OWLQN owlqn(&train_data, nproc, rank);
@@ -44,6 +48,8 @@ int main(int argc,char* argv[]){
     }
     else if(strcmp(argv[1], "ftrl") == 0){
         FTRL ftrl(&train_data, nproc, rank);
+        ftrl.step = stepnum;
+        ftrl.batch_size = batchsize;
         ftrl.ftrl();
         std::cout<<"rank main "<<rank<<std::endl;
         for(int j = 0; j < train_data.glo_fea_dim; j++){
