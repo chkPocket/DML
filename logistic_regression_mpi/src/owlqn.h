@@ -65,7 +65,6 @@ class OWLQN{
         }
 
         loc_z = new double[data->loc_ins_num]();
-        calculate_z();
 
         loc_g = new double[data->glo_fea_dim]();
         glo_g = new double[data->glo_fea_dim]();
@@ -157,7 +156,7 @@ class OWLQN{
 
     void calculate_gradient(double *w){
         double value;
-        int single_feature_num, instance_num = data->fea_matrix.size();
+        int index, single_feature_num, instance_num = data->fea_matrix.size();
         //LOG(INFO) << "process " << rank << ", instance num "
         std::cout << "process " << rank << ", instance num "
         << instance_num << std::endl;
