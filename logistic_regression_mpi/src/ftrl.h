@@ -10,7 +10,6 @@ class FTRL{
             : data(load_data), num_proc(total_num_proc), rank(my_rank){
             init();
         }
-
         ~FTRL(){}
 
     void init(){
@@ -18,19 +17,19 @@ class FTRL{
         glo_w = new float[data->glo_fea_dim]();
         loc_g = new float[data->glo_fea_dim]();
         glo_g = new float[data->glo_fea_dim]();
-
+        //need only by master node
         loc_z = new float[data->glo_fea_dim]();
         loc_sigma = new float[data->glo_fea_dim]();
         loc_n = new float[data->glo_fea_dim]();
-    
+        //four parameters for master node 
         alpha = 1.0;
         beta = 1.0;
         lambda1 = 0.0;
         lambda2 = 1.0;
         bias = 0.1; 
 
-        step = 1000;
-        batch_size = 2;
+        step = 50;
+        batch_size = 1000;
     }
 
     float sigmoid(float x){
@@ -53,11 +52,13 @@ class FTRL{
                 glo_g[j] += loc_g[j];
             }
         }
+        for(int j = 0; j < data->glo_fea_dim; j++){
+            glo_g[j] /= num_proc;
+        }
         for(int col = 0; col < data->glo_fea_dim; col++){
             loc_sigma[col] = ( sqrt (loc_n[col] + glo_g[col] * glo_g[col]) - sqrt(loc_n[col]) ) / alpha;
             loc_z[col] += glo_g[col] - loc_sigma[col] * loc_w[col];
             loc_n[col] += glo_g[col] * glo_g[col];
-
             if(abs(loc_z[col]) <= lambda1){
                  loc_w[col] = 0.0;
             }
@@ -74,59 +75,80 @@ class FTRL{
     void ftrl(){
         MPI_Status status;
         int index = 0, row = 0; float value = 0.0, pctr = 0.0;
+        int batch_num = data->fea_matrix.size() / batch_size;
+        std::cout<<"batch_num "<<batch_num<< " rank "<<rank<<std::endl;
+        int batch_num_min = 0;
+        MPI_Allreduce(&batch_num, &batch_num_min, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
+        std::cout<<"batch_num_min "<< batch_num_min<<std::endl;
         for(int i = 0; i < step; i++){
             std::cout<<"step "<<i<<std::endl;
-            row = i * batch_size;
-	        while( (row < (i + 1) * batch_size) && (row < data->fea_matrix.size()) ){
-	            float wx = bias;
-	            for(int col = 0; col < data->fea_matrix[row].size(); col++){//for one instance
-	  	            index = data->fea_matrix[row][col].idx;
-	                value = data->fea_matrix[row][col].val;
-	                wx += loc_w[index] * value;
+            row = 0;
+            int batched = 0;
+            while(row < data->fea_matrix.size()){
+                batched++;
+                std::cout<<"rank "<<rank<<" step "<<i<<" batch "<<batched<<std::endl;
+                if( (batched == batch_num_min - 5) ) break;
+                int lines = 0;
+	            while( lines < batch_size){
+	                float wx = bias;
+	                for(int col = 0; col < data->fea_matrix[row].size(); col++){//for one instance
+	  	                index = data->fea_matrix[row][col].idx;
+	                    value = data->fea_matrix[row][col].val;
+	                    wx += loc_w[index] * value;
+                    }
+                    pctr = sigmoid(wx);
+                    for(int col = 0; col < data->fea_matrix[row].size(); col++){
+                        index = data->fea_matrix[row][col].idx;
+                        value = data->fea_matrix[row][col].val;
+                        loc_g[index] += (pctr - data->label[row]) * value;
+                    }
+                    row++; lines++;
+                }//end batch while
+                //std::cout<<"step "<<i<<" after batch "<< rank <<std::endl;
+                for(int col = 0; col < data->glo_fea_dim; col++){
+                        loc_g[col] /= batch_size;
                 }
-	            pctr = sigmoid(wx);
-                for(int col = 0; col < data->fea_matrix[row].size(); col++){
-                    index = data->fea_matrix[row][col].idx;
-                    value = data->fea_matrix[row][col].val;
-                    loc_g[index] += (pctr - data->label[row]) * value;
-                }
-                ++row;
-            } 
-            if(rank != 0){//send gradient to rank 0;
-                MPI_Send(loc_g, data->glo_fea_dim, MPI_FLOAT, 0, 99, MPI_COMM_WORLD);
-            }
-            else if(rank == 0){
-                update();
-            }
 
-            if(rank == 0){
-                for(int r = 1; r < num_proc; r++){
-                    MPI_Send(loc_w, data->glo_fea_dim, MPI_FLOAT, r, 999, MPI_COMM_WORLD);
+                if(rank != 0){//send gradient to rank 0;
+                        MPI_Send(loc_g, data->glo_fea_dim, MPI_FLOAT, 0, 99, MPI_COMM_WORLD);
                 }
-            }
-            else if(rank != 0){
-                MPI_Recv(glo_w, data->glo_fea_dim, MPI_FLOAT, 0, 999, MPI_COMM_WORLD, &status);
-            }
-            //break;
-        }//end for
-    }
-
+                else if(rank == 0){
+                        update();
+                }
+                //std::cout<<"step "<<i<<" after update "<<rank<<std::endl;
+                //sync w
+                if(rank == 0){
+                        for(int r = 1; r < num_proc; r++){
+                                MPI_Send(loc_w, data->glo_fea_dim, MPI_FLOAT, r, 999, MPI_COMM_WORLD);
+                        }
+                }
+                else if(rank != 0){
+                        MPI_Recv(loc_w, data->glo_fea_dim, MPI_FLOAT, 0, 999, MPI_COMM_WORLD, &status);
+                }
+                MPI_Barrier(MPI_COMM_WORLD);
+                //std::cout<<"step "<<i<<" after sync w "<<rank << std::endl;
+            }//end while
+        }//end all step for
+    }//end ftrl
     float* loc_w;
-
     private:
+    int finish_flag;
     Load_Data* data;
     int step;
 
     float* glo_w;
     float* loc_g;
     float* glo_g;
+
     float* loc_z;
     float* loc_sigma;
     float* loc_n;
+
     float alpha;
     float beta;
     float lambda1;
     float lambda2;
+
     int batch_size;
     float bias;
     int num_proc;

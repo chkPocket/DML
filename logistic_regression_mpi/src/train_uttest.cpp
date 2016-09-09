@@ -2,20 +2,15 @@
 #include <vector>
 #include <gtest/gtest.h>
 
-class TrainTest: public testing::Test
-{
+class TrainTest: public testing::Test{
     public: 
         //TrainTest() {}
         //virtual ~TrainTest(){}
-
         LR* lr;
-        
-        virtual void SetUp()
-        {
+        virtual void SetUp(){
             lr = new LR();
         }
-        void TearDown()
-        {
+        void TearDown(){
             delete lr;
         }
 };

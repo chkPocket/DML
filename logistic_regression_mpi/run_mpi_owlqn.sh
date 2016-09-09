@@ -7,4 +7,4 @@
 #mv core backup/"$tt"
 #make
 #rm log/*
-mpirun -np 4 ./train owlqn ./data/agaricus.txt.train ./data/agaricus.txt.test
+mpirun -np 3 ./train owlqn ./data/agaricus.txt.train ./data/agaricus.txt.test

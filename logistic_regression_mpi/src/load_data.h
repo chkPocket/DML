@@ -35,7 +35,8 @@ public:
         if(!fin_.is_open()){
             std::cout<<"open file error: "<<file_name << std::endl;
             exit(1);
-        }
+        } 
+        std::cout<<file_name<<std::endl;
     }
     ~Load_Data(){
         fin_.close();

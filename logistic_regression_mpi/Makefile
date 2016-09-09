@@ -7,6 +7,7 @@ GTEST_LIB = -L/usr/local/lib
 GTEST_INCLUDE = -I/usr/local/include/gtest
 #train code
 CPP_tag = -std=gnu++11
+
 train:lr_main.o
 	mpicxx $(CPP_tag) -o train lr_main.o $(INCLUDE) $(LIB) -lpthread -lopenblas -lglog
 
