@@ -35,14 +35,14 @@ int main(int argc,char* argv[]){
     MPI_Barrier(MPI_COMM_WORLD);
 
     std::vector<float> model;
-
     
-
     if (strcmp(argv[1], "owlqn") == 0){
         OWLQN owlqn(&train_data, nproc, rank);
+        owlqn.steps = stepnum;
+        owlqn.batch_size = batchsize;
         owlqn.owlqn();
         for(int j = 0; j < train_data.glo_fea_dim; j++){
-            std::cout<<"w["<< j << "]: "<<owlqn.glo_w[j]<<std::endl;
+            if(owlqn.glo_w[j] != 0) std::cout<<"w["<< j << "]: "<<owlqn.glo_w[j]<<std::endl;
             model.push_back(owlqn.glo_w[j]);
         }
     }

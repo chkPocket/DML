@@ -57,7 +57,7 @@ public:
                 while(sscanf(pline, "%ld:%d%n", &index, &value, &nchar) >= 2){
                     pline += nchar;
                     sf.idx = index;
-                    if(index > loc_fea_dim) loc_fea_dim = index;
+                    if(index+1 > loc_fea_dim) loc_fea_dim = index+1;
                     setIter = feaIdx.find(index);
                     if(setIter == feaIdx.end()){
                         feaIdx.insert(index);
