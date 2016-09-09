@@ -41,7 +41,7 @@ public:
 
     void load_data_minibatch(const int num){
         fea_matrix.clear();
-	std::cout<<"load batch data start..."<<std::endl;
+	//std::cout<<"load batch data start..."<<std::endl;
     	for(int i = 0; i < num; i++){
             std::getline(fin_, line);
 	    if(fin_.eof()) break;

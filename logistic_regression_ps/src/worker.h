@@ -34,6 +34,7 @@ class Worker : public ps::App{
 	    snprintf(data_path, 1024, "%s-%05d", file_path, rank);
 	    data = new Load_Data(data_path);
 	    
+        std::cout<<"i am rank "<<rank<<std::endl;
             for(int i = 0; i < step; i++){
                 data->load_data_minibatch(10);
 	        if(data->fea_matrix.size() == 0) break;
@@ -72,7 +73,8 @@ class Worker : public ps::App{
 	    std::cout<<"feaIdx size = "<<data->feaIdx.size()<<std::endl;
 	    kv_.Wait(kv_.Pull(fea_all, &w_all));
 	    for(int i = 0; i < fea_all.size(); i++){
-		std::cout<<fea_all[i]<<":"<<w_all[fea_all[i]]<<std::endl;
+                continue;
+		//std::cout<<fea_all[i]<<":"<<w_all[fea_all[i]]<<std::endl;
 	    }
         }
     std::vector<ps::Key> fea_all;
