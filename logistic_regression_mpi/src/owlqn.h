@@ -100,10 +100,11 @@ class OWLQN{
 
         lambda = 1.0;
         backoff = 0.5;
-        flag = 1;
+        flag_wolf = 1;
+        flag_lambda = 1;
     }
 
-    void calculate_z(double *w){
+    void calculate_wx(double *w){
         size_t idx = 0;
         double val = 0;
         for(int i = 0; i < data->loc_ins_num; i++) {
@@ -133,16 +134,13 @@ class OWLQN{
         double f = 0.0, val = 0.0, wx = 0.0, single_loss = 0.0, regular_loss = 0.0;
         int index;
         memset(loc_z, 0, sizeof(double) * data->loc_ins_num);
-        calculate_z(w);
-        return 0.0;
+        calculate_wx(w);
         for(int i = 0; i < data->fea_matrix.size(); i++){
             wx = 0.0;
             for(int j = 0; j < data->fea_matrix[i].size(); j++){
                 index = data->fea_matrix[i][j].idx;
                 val = data->fea_matrix[i][j].val;
-                //LOG(INFO) << *(para_w + index) << std::endl;
             }
-            //LOG(INFO)<<"wx: "<<sigmoid(wx)<<std::endl;
             single_loss = data->label[i] * log(sigmoid(loc_z[i])) +
                       (1 - data->label[i]) * log(1 - sigmoid(loc_z[i]));
             f += single_loss;
@@ -156,7 +154,6 @@ class OWLQN{
     void calculate_gradient(double *w){
         double value;
         int index, single_feature_num, instance_num = data->fea_matrix.size();
-        loc_loss = calculate_loss(w);
         for(int i = 0; i < instance_num; i++){
             single_feature_num = data->fea_matrix[i].size();
             for(int j = 0; j < single_feature_num; j++){
@@ -173,23 +170,23 @@ class OWLQN{
     void calculate_subgradient(){
         if(c == 0.0){
             for(int j = 0; j < data->glo_fea_dim; j++){
-                *(glo_sub_g + j) = -1 * *(glo_g + j);
+                glo_sub_g[j] = -1 * glo_g[j];
             }
         } else if(c != 0.0){
             for(int j = 0; j < data->glo_fea_dim; j++){
-                if(*(glo_w + j) > 0){
-                    *(glo_sub_g + j) = *(glo_g + j) + c;
+                if(glo_w[j] > 0){
+                    glo_sub_g[j] = glo_g[j] + c;
                 }
-                else if(*(glo_w + j) < 0){
-                    *(glo_sub_g + j) = *(glo_g + j) - c;
+                else if(glo_w[j] < 0){
+                    glo_sub_g[j] = glo_g[j] - c;
                 }
                 else {
-                    if(*(glo_g + j) - c > 0){
-                        *(glo_sub_g + j) = *(glo_g + j) - c;//左导数
-                    } else if(*(glo_g + j) + c < 0){
-                        *(glo_sub_g + j) = *(glo_g + j) + c;
+                    if(glo_g[j] - c > 0){
+                        glo_sub_g[j] = glo_g[j] - c;//左导数
+                    } else if(glo_g[j] + c < 0){
+                        glo_sub_g[j] = glo_g[j] + c;
                     } else {
-                        *(glo_sub_g + j) = 0;
+                        glo_sub_g[j] = 0;
                     }
                 }
             }
@@ -213,6 +210,8 @@ class OWLQN{
 
     void line_search(){
         MPI_Status status;
+        flag_wolf = 1;
+        flag_lambda = 1;
         while(true){
             if(rank == MASTERID){
                 for(int j = 0; j < data->glo_fea_dim; j++){
@@ -224,35 +223,53 @@ class OWLQN{
             } else if(rank != MASTERID){
                 MPI_Recv(glo_new_w, data->glo_fea_dim, MPI_DOUBLE, 0, 99, MPI_COMM_WORLD, &status);
             }
-            
             loc_new_loss = calculate_loss(glo_new_w);
+            //std::cout<<"step = " << step<<" myrank = "<<rank<<" in linesearch~"<<std::endl;
             if(rank != MASTERID){
                 MPI_Send(&loc_new_loss, 1, MPI_FLOAT, 0, 9999, MPI_COMM_WORLD);
             } else if(rank == MASTERID){
-                glo_new_loss += loc_new_loss;
+                glo_new_loss = loc_new_loss;
                 for(int r = 1; r < num_proc; r++){
                     MPI_Recv(&loc_new_loss, 1, MPI_FLOAT, r, 9999, MPI_COMM_WORLD, &status);
                     glo_new_loss += loc_new_loss;
                 }
-                //std::cout<<"glo_new_loss "<<glo_new_loss<<std::endl;
+                std::cout<<"glo_new_loss "<<glo_new_loss<<std::endl;
                 double expected_loss = glo_loss + lambda *
                         cblas_ddot(data->glo_fea_dim, (double*)glo_q, 1, (double*)glo_sub_g, 1);
-                //std::cout<<"expected_loss " << expected_loss<<std::endl;
-                if(glo_new_loss <= expected_loss){
-                    flag = 0;
+                std::cout<<"expected_loss " << expected_loss<<std::endl;
+                if(glo_new_loss < expected_loss){
+                    flag_wolf = 0;
                     for(int r = 1; r < num_proc; r++){
-                        MPI_Send(&flag, 1, MPI_INT, r, 111, MPI_COMM_WORLD);
+                        MPI_Send(&flag_wolf, 1, MPI_INT, r, 111, MPI_COMM_WORLD);
+                    }
+                }
+                else{
+                    flag_wolf = 1;
+                    for(int r = 1; r < num_proc; r++){
+                        MPI_Send(&flag_wolf, 1, MPI_INT, r, 111, MPI_COMM_WORLD);
                     }
                 }
                 lambda *= backoff;
-                if(lambda <= 1e-6) break;
+                std::cout<<"lambda = "<<lambda<<std::endl;
+                if(lambda <= 1e-6){
+                    flag_lambda = 0;
+                    for(int r = 1; r < num_proc; r++){
+                        MPI_Send(&flag_lambda, 1, MPI_INT, r, 222, MPI_COMM_WORLD);
+                    }
+                }
+                else{
+                    flag_lambda = 0;
+                    for(int r = 1; r < num_proc; r++){
+                        MPI_Send(&flag_lambda, 1, MPI_INT, r, 222, MPI_COMM_WORLD);
+                    }
+                }
             }//end masterid
-            
             if(rank != MASTERID){
-                MPI_Recv(&flag, 1, MPI_INT, 0, 111, MPI_COMM_WORLD, &status);
+                MPI_Recv(&flag_wolf, 1, MPI_INT, 0, 111, MPI_COMM_WORLD, &status);
+                MPI_Recv(&flag_lambda, 1, MPI_INT, 0, 222, MPI_COMM_WORLD, &status);
             }
-
-            if (flag == 0) break;
+            std::cout<<"step = " << step<<" myrank = "<<rank<<" flag_wolf = "<<flag_wolf<<" flag_lambda = "<<flag_lambda<<" in linesearch~"<<std::endl;
+            if (flag_wolf || flag_lambda == 0) break;
         }//end while
     }
     void print(double a[]){
@@ -264,30 +281,22 @@ class OWLQN{
         cblas_dcopy(data->glo_fea_dim, glo_sub_g, 1, glo_q, 1);
         if(now_m > m) now_m = m;
         for(int loop = now_m-1; loop >= 0; --loop){
-                glo_ro_list[loop] =
-                        cblas_ddot(data->glo_fea_dim, &(*glo_y_list)[loop],
-                                        1, &(*glo_s_list)[loop], 1);
-                glo_alpha_list[loop] =
-                        cblas_ddot(data->glo_fea_dim, &(*glo_s_list)[loop],
-                                        1, (double*)glo_q, 1) /
-                        (glo_ro_list[loop] + 1.0);
-                cblas_daxpy(data->glo_fea_dim, -1 * glo_alpha_list[loop],
-                                &(*glo_y_list)[loop], 1, (double*)glo_q, 1);
+            glo_ro_list[loop] = 
+                    cblas_ddot(data->glo_fea_dim, &(*glo_y_list)[loop], 1, &(*glo_s_list)[loop], 1);
+            glo_alpha_list[loop] =
+                    cblas_ddot(data->glo_fea_dim, &(*glo_s_list)[loop], 1, (double*)glo_q, 1) / (glo_ro_list[loop] + 1.0);
+            cblas_daxpy(data->glo_fea_dim, -1 * glo_alpha_list[loop], &(*glo_y_list)[loop], 1, (double*)glo_q, 1);
         }
-        std::cout<<"step = " << step<<std::endl;
         if(step == 0){//if step not equal 0, scale glo_q by gamma;
-                double ydoty =
-                        cblas_ddot(data->glo_fea_dim, glo_s_list[now_m - 1],
-                                        1, glo_y_list[now_m - 1], 1);
-                float gamma = glo_ro_list[now_m - 1] / (ydoty + 1.0);
-                cblas_dscal(data->glo_fea_dim, gamma, (double*)glo_q, 1);
+            double ydoty =
+                    cblas_ddot(data->glo_fea_dim, glo_s_list[now_m - 1], 1, glo_y_list[now_m - 1], 1);
+            float gamma = glo_ro_list[now_m - 1] / (ydoty + 1.0);
+            cblas_dscal(data->glo_fea_dim, gamma, (double*)glo_q, 1);
         }
         for(int loop = 0; loop < now_m; ++loop){
-                double beta =
-                        cblas_ddot(data->glo_fea_dim, &(*glo_y_list)[loop],
-                                        1, (double*)glo_q, 1) / (glo_ro_list[loop] + 1.0);
-                cblas_daxpy(data->glo_fea_dim, glo_alpha_list[loop] - beta,
-                                &(*glo_s_list)[loop], 1, (double*)glo_q, 1);
+            double beta =
+                    cblas_ddot(data->glo_fea_dim, &(*glo_y_list)[loop], 1, (double*)glo_q, 1) / (glo_ro_list[loop] + 1.0);
+            cblas_daxpy(data->glo_fea_dim, glo_alpha_list[loop] - beta, &(*glo_s_list)[loop], 1, (double*)glo_q, 1);
         }
     }
 
@@ -298,16 +307,10 @@ class OWLQN{
     }
 
     void update_memory(){
-       //update slist
-        cblas_daxpy(data->glo_fea_dim, -1, (double*)glo_w, 1,
-            (double*)glo_new_w, 1);
-        cblas_dcopy(data->glo_fea_dim, (double*)glo_new_w, 1,
-            (double*)glo_s_list[now_m % m], 1);
-        //update ylist
-        cblas_daxpy(data->glo_fea_dim, -1, (double*)glo_g, 1,
-            (double*)glo_new_g, 1);
-        cblas_dcopy(data->glo_fea_dim, (double*)glo_new_g, 1,
-            (double*)glo_y_list[now_m % m], 1);
+        cblas_daxpy(data->glo_fea_dim, -1, (double*)glo_w, 1, (double*)glo_new_w, 1);
+        cblas_dcopy(data->glo_fea_dim, (double*)glo_new_w, 1, (double*)glo_s_list[now_m % m], 1);
+        cblas_daxpy(data->glo_fea_dim, -1, (double*)glo_g, 1, (double*)glo_new_g, 1);
+        cblas_dcopy(data->glo_fea_dim, (double*)glo_new_g, 1, (double*)glo_y_list[now_m % m], 1);
         now_m++;
     } 
 
@@ -343,15 +346,19 @@ class OWLQN{
     void owlqn(){
         MPI_Status status;
         for(step = 0; step < steps; step++){
-            //std::cout<<"step "<<step<<" of steps "<<steps<<std::endl;
+            if(step == 0) loc_loss = calculate_loss(glo_w);
             calculate_gradient(glo_w);
             if(rank != MASTERID){
+                MPI_Send(&loc_loss, 1, MPI_DOUBLE, MASTERID, 90, MPI_COMM_WORLD);
                 MPI_Send(loc_g, data->glo_fea_dim, MPI_DOUBLE, MASTERID, 99, MPI_COMM_WORLD);
             } else if(rank == MASTERID){
+                glo_loss = loc_loss;
                 for(int j = 0; j < data->glo_fea_dim; j++){
                     glo_g[j] = loc_g[j];
                 }
                 for(int r = 1; r < num_proc; r++){
+                    MPI_Recv(&loc_loss, 1, MPI_DOUBLE, r, 90, MPI_COMM_WORLD, &status);
+                    glo_loss += loc_loss;
                     MPI_Recv(loc_g, data->glo_fea_dim, MPI_DOUBLE, r, 99, MPI_COMM_WORLD, &status);
                     for(int j = 0; j < data->glo_fea_dim; j++){
                         glo_g[j] += loc_g[j];
@@ -364,9 +371,8 @@ class OWLQN{
                 two_loop();
                 fix_dir_glo_q();
             }
+            std::cout<<"step = "<<step<<" rank = "<<rank<<" flag = "<<flag_wolf<<std::endl;
             line_search();
-            std::cout<<"rank "<<rank<<" flag = "<<flag<<std::endl;
-            //std::cout<<"rank = "<<rank<<std::endl;
             if(rank == MASTERID){
                 fix_dir_glo_new_w();
                 if(meet_criterion()){
@@ -376,6 +382,7 @@ class OWLQN{
                     update_state();
                 }
             }//end if
+            MPI_Barrier(MPI_COMM_WORLD);
         }
     }
 
@@ -385,7 +392,8 @@ class OWLQN{
     int batch_size;
     private:
     Load_Data* data;
-    int flag;
+    int flag_wolf;
+    int flag_lambda;
     int num_proc; // total num of process in MPI comm world
     int rank; // my process rank in MPT comm world
 
