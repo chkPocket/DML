@@ -100,6 +100,7 @@ class OWLQN{
 
         lambda = 1.0;
         backoff = 0.5;
+        flag = 1;
     }
 
     void calculate_z(double *w){
@@ -155,7 +156,6 @@ class OWLQN{
     void calculate_gradient(double *w){
         double value;
         int index, single_feature_num, instance_num = data->fea_matrix.size();
-        //LOG(INFO) << "process " << rank << ", instance num "
         loc_loss = calculate_loss(w);
         for(int i = 0; i < instance_num; i++){
             single_feature_num = data->fea_matrix[i].size();
@@ -163,22 +163,10 @@ class OWLQN{
                 index = data->fea_matrix[i][j].idx;
                 value = data->fea_matrix[i][j].val;
                 loc_g[index] += (sigmoid(loc_z[i]) - data->label[i]) * value;
-                //DLOG(INFO) << "loc_g[" << index << "]: " << loc_g[index]
-                //           << " after instance " << i + 1  << "/" << instance_num
-                //           << " in rank " << rank <<std::endl << std::flush;
             }
-            /*
-               if(i == instance_num - 1){
-               for(int index = 0; index < data->glo_fea_dim; index++)
-               std::cout << "loc_g[" << index << "]: " << loc_g[index]
-                     << " after instance " << i + 1  << "/" << instance_num
-                     << " in rank " << rank <<std::endl << std::flush;
-               }*/
         }
         for(int index = 0; index < data->glo_fea_dim; index++){
             loc_g[index] = loc_g[index] / instance_num;
-            //std::cout << "glo_g[" << index << "]: " << glo_g[index] << " after normal "
-            //    << "in rank " << rank <<std::endl << std::flush;	
         }
     }//end calculate_gradient
 
@@ -189,7 +177,6 @@ class OWLQN{
             }
         } else if(c != 0.0){
             for(int j = 0; j < data->glo_fea_dim; j++){
-                //LOG(INFO) << *(glo_w + j) << std::endl;
                 if(*(glo_w + j) > 0){
                     *(glo_sub_g + j) = *(glo_g + j) + c;
                 }
@@ -197,7 +184,6 @@ class OWLQN{
                     *(glo_sub_g + j) = *(glo_g + j) - c;
                 }
                 else {
-                    //LOG(INFO) << *(glo_g + j) - c << std::endl;
                     if(*(glo_g + j) - c > 0){
                         *(glo_sub_g + j) = *(glo_g + j) - c;//左导数
                     } else if(*(glo_g + j) + c < 0){
@@ -206,102 +192,67 @@ class OWLQN{
                         *(glo_sub_g + j) = 0;
                     }
                 }
-                //LOG(INFO) << *(glo_sub_g + j) << std::endl;
-                //LOG(INFO) << c <<std::endl;
             }
         }
-        /*   
-        for(int i = 0; i < data->glo_fea_dim; i++){
-           if(rank == 0)
-           std::cout<<"glo_sub_g["<<i<<"]: "<<glo_sub_g[i]
-           <<" in rank:" <<rank<<std::endl;
-           }
-        */
     }
 
     void fix_dir_glo_q(){
-        /*
-        for(int j = 0; j < data->glo_fea_dim; j++){
-            //if(rank == 0) std::cout<<"glo_q["<<j<<"]"<<glo_q[j]<<std::endl;
-            if(rank == 0) std::cout<<"glo_sub_g["<<j<<"]"<<glo_sub_g[j]<<std::endl;
-         }
-        */
         for(int j = 0; j < data->glo_fea_dim; ++j){
             if(*(glo_q + j) * *(glo_sub_g +j) >= 0){
                 *(glo_q + j) = 0.0;
             }
         }
-        /*
-        for(int j = 0; j < data->glo_fea_dim; ++j){
-            std::cout<<"glo_q["<<j<<"]: "<<glo_q[j]<<std::endl;
-        }
-        */
     }
 
     void fix_dir_glo_new_w(){
-    for(int j = 0; j < data->glo_fea_dim; j++){
-        if(*(glo_new_w + j) * *(glo_w + j) >=0) *(glo_new_w + j) = 0.0;
-        else *(glo_new_w + j) = *(glo_new_w + j);
-    }
+        for(int j = 0; j < data->glo_fea_dim; j++){
+            if(*(glo_new_w + j) * *(glo_w + j) >=0) *(glo_new_w + j) = 0.0;
+            else *(glo_new_w + j) = *(glo_new_w + j);
+        }
     }   
 
     void line_search(){
         MPI_Status status;
-        int flag = 0;
         while(true){
             if(rank == MASTERID){
                 for(int j = 0; j < data->glo_fea_dim; j++){
                     *(glo_new_w + j) = *(glo_w + j) + lambda * *(glo_q + j);
                 }
                 for(int i = 1; i < num_proc; i++){
-                    MPI_Send(glo_new_w, data->glo_fea_dim, MPI_DOUBLE, i,
-                                        99, MPI_COMM_WORLD);
+                    MPI_Send(glo_new_w, data->glo_fea_dim, MPI_DOUBLE, i, 99, MPI_COMM_WORLD);
                 }
             } else if(rank != MASTERID){
-                MPI_Recv(glo_new_w, data->glo_fea_dim, MPI_DOUBLE, 0,
-                                        99, MPI_COMM_WORLD, &status);
+                MPI_Recv(glo_new_w, data->glo_fea_dim, MPI_DOUBLE, 0, 99, MPI_COMM_WORLD, &status);
             }
             
             loc_new_loss = calculate_loss(glo_new_w);
             if(rank != MASTERID){
-                    MPI_Send(&loc_new_loss, 1, MPI_FLOAT, 0, 9999, MPI_COMM_WORLD);
+                MPI_Send(&loc_new_loss, 1, MPI_FLOAT, 0, 9999, MPI_COMM_WORLD);
             } else if(rank == MASTERID){
                 glo_new_loss += loc_new_loss;
                 for(int r = 1; r < num_proc; r++){
                     MPI_Recv(&loc_new_loss, 1, MPI_FLOAT, r, 9999, MPI_COMM_WORLD, &status);
                     glo_new_loss += loc_new_loss;
                 }
-                std::cout<<"glo_new_loss "<<glo_new_loss<<std::endl;
-                //LOG(INFO) << "masterid:" << MASTER_ID << std::endl;
-                //LOG(INFO) << "before reduce rank:" << rank <<" loc_new_loss:"
-                //          << loc_new_loss << " glo_loss:" << glo_loss
-                //          << std::endl;
-                //MPI_Allreduce(&loc_new_loss, &glo_new_loss, 1, MPI_DOUBLE,
-                //              MPI_SUM, MPI_COMM_WORLD);
-                //LOG(INFO) << "after reduce rank:" << rank << " glo_new_loss:"
-                //          << glo_new_loss << " glo_loss:" << glo_loss
-                //          << std::endl;
+                //std::cout<<"glo_new_loss "<<glo_new_loss<<std::endl;
                 double expected_loss = glo_loss + lambda *
-                        cblas_ddot(data->glo_fea_dim, (double*)glo_q,
-                                        1, (double*)glo_sub_g, 1);
-                std::cout<<"expected_loss " << expected_loss<<std::endl;
+                        cblas_ddot(data->glo_fea_dim, (double*)glo_q, 1, (double*)glo_sub_g, 1);
+                //std::cout<<"expected_loss " << expected_loss<<std::endl;
                 if(glo_new_loss <= expected_loss){
                     flag = 0;
                     for(int r = 1; r < num_proc; r++){
                         MPI_Send(&flag, 1, MPI_INT, r, 111, MPI_COMM_WORLD);
                     }
-                    return;
                 }
                 lambda *= backoff;
-                //LOG(INFO) << lambda << std::endl;
                 if(lambda <= 1e-6) break;
-                LOG(INFO) << "lambda is less than 1e-6 in line search, "
-                        << "lambda value [" << lambda << " ]" << std::endl;
             }//end masterid
+            
             if(rank != MASTERID){
                 MPI_Recv(&flag, 1, MPI_INT, 0, 111, MPI_COMM_WORLD, &status);
-                if(flag == 0) return;
             }
+
+            if (flag == 0) break;
         }//end while
     }
     void print(double a[]){
@@ -312,7 +263,6 @@ class OWLQN{
     void two_loop(){
         cblas_dcopy(data->glo_fea_dim, glo_sub_g, 1, glo_q, 1);
         if(now_m > m) now_m = m;
-        std::cout<<"now m = "<<now_m<<std::endl;
         for(int loop = now_m-1; loop >= 0; --loop){
                 glo_ro_list[loop] =
                         cblas_ddot(data->glo_fea_dim, &(*glo_y_list)[loop],
@@ -342,14 +292,9 @@ class OWLQN{
     }
 
     void update_state(){
-        //update lbfgs memory
         update_memory();//not distributed
-        //update w
         std::swap(glo_w, glo_new_w);
-        //update loss
         glo_loss = glo_new_loss;
-        //update step count
-        step++;
     }
 
     void update_memory(){
@@ -398,19 +343,16 @@ class OWLQN{
     void owlqn(){
         MPI_Status status;
         for(step = 0; step < steps; step++){
-            std::cout<<"total steps "<<steps<<"; step "<<step<<std::endl;
-            std::cout<<"fea dim "<<data->glo_fea_dim<<std::endl;
+            //std::cout<<"step "<<step<<" of steps "<<steps<<std::endl;
             calculate_gradient(glo_w);
             if(rank != MASTERID){
-                MPI_Send(loc_g, data->glo_fea_dim, MPI_DOUBLE, MASTERID,
-                    99, MPI_COMM_WORLD);
+                MPI_Send(loc_g, data->glo_fea_dim, MPI_DOUBLE, MASTERID, 99, MPI_COMM_WORLD);
             } else if(rank == MASTERID){
                 for(int j = 0; j < data->glo_fea_dim; j++){
                     glo_g[j] = loc_g[j];
                 }
                 for(int r = 1; r < num_proc; r++){
-                    MPI_Recv(loc_g, data->glo_fea_dim, MPI_DOUBLE, r,
-                        99, MPI_COMM_WORLD, &status);
+                    MPI_Recv(loc_g, data->glo_fea_dim, MPI_DOUBLE, r, 99, MPI_COMM_WORLD, &status);
                     for(int j = 0; j < data->glo_fea_dim; j++){
                         glo_g[j] += loc_g[j];
                     }
@@ -422,32 +364,28 @@ class OWLQN{
                 two_loop();
                 fix_dir_glo_q();
             }
-            std::cout<<"before linesearch rank = "<<rank<<std::endl;
             line_search();
-            std::cout<<"rank = "<<rank<<std::endl;
-            //not distributed, only on master process
-            fix_dir_glo_new_w();
-            //not distributed, only on master process
-            if(meet_criterion()){
-                //not distributed, only on master process
-                save_model();
-                break;
-            } else {
-                LOG(INFO) << "process " << rank << " step " << step
-                << std::endl << std::flush;
-                LOG(INFO) << "======================================"
-                << std::endl << std::flush;
-                if(rank == MASTERID) update_state();
-            }
+            std::cout<<"rank "<<rank<<" flag = "<<flag<<std::endl;
+            //std::cout<<"rank = "<<rank<<std::endl;
+            if(rank == MASTERID){
+                fix_dir_glo_new_w();
+                if(meet_criterion()){
+                    //save_model();
+                    break;
+                } else {
+                    update_state();
+                }
+            }//end if
         }
     }
+
     double* glo_w; //global model parameter
     int steps;
     int step;
     int batch_size;
     private:
     Load_Data* data;
-
+    int flag;
     int num_proc; // total num of process in MPI comm world
     int rank; // my process rank in MPT comm world
 
