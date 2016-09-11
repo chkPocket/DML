@@ -1,3 +1,13 @@
+Deprecated
+
+please go to
+
+    logistic-regression-ftrl-mpi
+
+    logistic-regression-ftrl-ps
+   
+    logistic-regression-owlqn-mpi
+
 # DML
 #logisit regression:
   ftrl algorithm;
