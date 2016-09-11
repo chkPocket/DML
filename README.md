@@ -10,6 +10,8 @@ please go to
 
     AUC-caculate-mpi
 
+    factorization-machine-ftrl-mpi
+
 # DML
 #logisit regression:
   ftrl algorithm;
