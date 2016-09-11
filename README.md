@@ -8,6 +8,8 @@ please go to
    
     logistic-regression-owlqn-mpi
 
+    AUC-caculate-mpi
+
 # DML
 #logisit regression:
   ftrl algorithm;
